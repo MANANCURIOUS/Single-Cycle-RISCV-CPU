@@ -1,43 +1,45 @@
-module ALU #(parameter Width = 32)(
-input [3:0] controlsignal, input [Width-1:0] A1,A2,
-output reg [Width-1:0] Y, output zero);
-//wire [63:0] B;
-always @(*)
-begin
-if (controlsignal == 4'b0000)
- Y = A1 & A2;
-else if (controlsignal == 4'b0001)
- Y = A1 | A2;
-else if(controlsignal == 4'b0010)
- Y = A1 + A2;
-else if(controlsignal == 4'b0110)
-Y = A1 - A2;
-else if(controlsignal == 4'b0011)
-Y = A1 << A2;
-else if(controlsignal == 4'b0100)
-begin
-//A1 = ~A1 + 1;
-//A2 = ~A2 + 1;
-if((~A1+1) < (~A2+1))
-Y = 1;
-else 
-Y = 0; 
-end
-else if(controlsignal == 4'b0101)
-begin
-if(A1 < A2)
-Y = 1;
-else 
-Y = 0;
-end
-else if(controlsignal == 4'b0111)
-Y = A1 ^ A2;
-else if(controlsignal == 4'b1000)
-Y = A1 >> A2;
-else if(controlsignal == 4'b1010)
-Y = A1 >>> A2;
-else
- Y = {Width{1'bx}};
-end 
-assign zero = (Y == 0) ? 1 : 0;
+module ALU
+  #(parameter WIDTH = 32)
+  (
+    input  [3:0] controlsignal,
+    input  [WIDTH-1:0] A1,
+    input  [WIDTH-1:0] A2,
+    output reg [WIDTH-1:0] Y,
+    output wire zero
+  );
+
+  // Opcode encodings (choose to match your upstream control)
+  localparam OP_AND  = 4'b0000;
+  localparam OP_OR   = 4'b0001;
+  localparam OP_ADD  = 4'b0010;
+  localparam OP_SLL  = 4'b0011;
+  localparam OP_SLT  = 4'b0100; // signed less-than
+  localparam OP_SLTU = 4'b0101; // unsigned less-than
+  localparam OP_XOR  = 4'b0111;
+  localparam OP_SUB  = 4'b0110;
+  localparam OP_SRL  = 4'b1000;
+  localparam OP_SRA  = 4'b1010;
+
+  // shift amount width: for WIDTH=32 use 5 bits
+  wire [4:0] shamt = A2[4:0];
+
+  // combinational ALU
+  always @(*) begin
+    case (controlsignal)
+      OP_AND:  Y = A1 & A2;
+      OP_OR:   Y = A1 | A2;
+      OP_ADD:  Y = A1 + A2;
+      OP_SUB:  Y = A1 - A2;
+      OP_SLL:  Y = A1 << shamt;          // explicit shamt
+      OP_SRL:  Y = A1 >> shamt;          // logical right
+      OP_SRA:  Y = $signed(A1) >>> shamt; // arithmetic right (signed)
+      OP_XOR:  Y = A1 ^ A2;
+      OP_SLT:  Y = ($signed(A1) < $signed(A2)) ? {{(WIDTH-1){1'b0}},1'b1} : {WIDTH{1'b0}};
+      OP_SLTU: Y = (A1 < A2) ? {{(WIDTH-1){1'b0}},1'b1} : {WIDTH{1'b0}};
+      default: Y = {WIDTH{1'b0}};        // safe default
+    endcase
+  end
+
+  assign zero = (Y == {WIDTH{1'b0}}) ? 1'b1 : 1'b0;
+
 endmodule
